@@ -1,6 +1,6 @@
 # Tokenium Whitepaper
 
-**Version 0.2.1**
+**Version 0.2.2**
 
 Tokenium is a cryptocurrency exchange protocol for ethereum ERC20 tokens. The protocol describes the interaction of a trusted open source trading client software, the trusted Tokenium smart contract, and an almost trustless exchange server. The protocol makes possible the creation of efficient low-latency token exchanges where users need to trust the exchange server only in an extremely limited and well-defined manner. It combines the best of both worlds: Seamless real-time trading of centralized exchanges, and the (almost) trustless manner of decentralized exchange protocols.
 
@@ -10,18 +10,31 @@ Currently centralized exchanges dominate the cryptocurrency market. These exchan
 
 Decentralized exchanges were proposed to solve the risk problem. There are several approaches:
 
-Projects which maintain an order-book on-chain (like EtherDelta) have extremely slow user experience, high latency and prone to blockchain congestion and uncertanity because outcomes depend on trasaction order inside a block.
+Projects which maintain an order-book on-chain did not take off: besides having an extremely slow user experience they require too much gas because they handle all the trading logic in smart contract.
 
 Several improvements have been proposed, some of them:
- * Automatic market maker solutions (e.g. Bancor)
- * Off-chain order placement - on chain *take* and *cancel* (0x)
 
-Both solutions have cons and pros. Automatic market maker solutions seem to be more convenient, but one problem seems to be that users have to be careful when buying/selling bigger amounts, as the calculated price can easily go away from the real market price for tokens.
-The main problem with both solutions is that blockchain congestion and transaction order instability is not solved in either of them. More specifically in 0x the success of a *take* or *cancel* command cannot be determined before the block is actually mined because the success of a trnsaction depends on which order the transactions arrive to the ethereum node. So both solutions can face problems with high traffic exchanges.
+* Automatic market maker solutions (e.g. Bancor)
+* Off-chain order placement - on chain *take* and *cancel* (EtherDelta, 0x)
+
+All these solutions have cons and pros. Automatic market maker solutions seem to be more convenient, but one problem seems to be that users have to be careful when buying/selling bigger amounts, as the calculated price can easily go away from the real market price for tokens.
+The main problem with all these solutions is that blockchain transaction order instability and thus rece condition is not solved in either of them. For example in 0x the success of a *take* or *cancel* command cannot be determined before the block is actually mined because the success of a transaction depends on which order the transactions arrive to the ethereum node. So all these solutions can face problems with high traffic exchanges.
+
+A thoghtful article was jointly written by several researchers about the protocols like EtherDelta and 0x:
+
+[http://hackingdistributed.com/2017/08/13/cost-of-decent/](http://hackingdistributed.com/2017/08/13/cost-of-decent/) 
+
+We beleive that the issues raised in the article are solved in Tokenium.
+
+At the end of  their report they conclude that an off-chain order-matching solution with limit orders would be probably a better way: they propose something like Tokenium. (In Tokenium's evolution we reached this conclusion independently, as originally the Tokenium project started as a 0x relayer, but we noticed similar concerns as they mention in their paper.)
+
+They write:
+
+> Unfortunately, the off-chain matching service will have the same kind of power to perform in-market arbitrage as centralized exchanges. Unlike centralized exchanges, though, it won’t have the power to steal users’ deposits.
+
+Tokenium's main contribution besides we implement 'off-chain matching' is that we aim to detect even these in-market arbitrage moves by the built-in auditing feature of the protocol (which we will describe later in this paper). The auditing feature can produce digital formal proofs of server misbehaviour (using digitally signed statements from the exchange server). Publication of this misbehaviour thus destorys the reputation of an exchange, so exchanges are incentivized not to do it.
 
 Another upcoming solution is *Kyber Network*. Kyber Network provides risk-free exchange service for people with fix prices continuously managed by so called *reserve managers*. Reserve managers are professional traders who are supposed to use centralized exchanges to trade, so Kyber Network is not really a competititor, rather a complementary solution to Tokenium.  
-
-
 
 ## Introduction To Tokenium
 
