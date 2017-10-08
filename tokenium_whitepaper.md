@@ -1,6 +1,6 @@
 # Tokenium Whitepaper
 
-**Version 0.2.2**
+**Version 0.3**
 
 Tokenium is a cryptocurrency exchange protocol for ethereum ERC20 tokens. The protocol describes the interaction of a trusted open source trading client software, the trusted Tokenium smart contract, and an almost trustless exchange server. The protocol makes possible the creation of efficient low-latency token exchanges where users need to trust the exchange server only in an extremely limited and well-defined manner. It combines the best of both worlds: Seamless real-time trading of centralized exchanges, and the (almost) trustless manner of decentralized exchange protocols.
 
@@ -113,7 +113,13 @@ A honest server also calls the *unreserve* method on the smart contact. (We will
 
 This is done by the client on the smart contract without any server involvement. Usually it is done when the client detects incorrect server behaviour. (The user have the right to initiate this anytime though). It is done in two phases and lasts several ethereum steps so the the server can notice in time when a dishonest client does this and can start not to match its orders before the emergency unreserve is finished.)
 
-### Market Orders, Cancellations and the 'Submission Promise List'
+### Market Orders, Cancellations and Lists in the Server
+
+-------------------
+
+![](tokenium.png)
+
+-------------------
 
 On the user interface the user makes an order for trading some amount of token `A` for token `B` at a price limit, by digitally signing this data structure (off-chain):
 
@@ -121,25 +127,39 @@ On the user interface the user makes an order for trading some amount of token `
 
 The user can cancel orders anytime fast (off-chain), just like on centralized exchanges.
 
-Client order and (cancel) submissions are serialized in the server. The list of these orders can be queried from the server as a list of:
+`order`, `cancel` and `unreserve` submissions from multiple clients to the same currency pair are serialized into a list in the server by the incoming time. This list is called the **Client Submission List**. It can be queried from the server as a list of:
 
 	{order-data,serial-number,signiture-by-server}
 
-Clients can later determine and prove whether there is contradiction between these orders and the server's *submission promise list*. (see later) 
-
 The exchange does real-time order matching.
 
-The server collects real-time what kind of submissions it will do to the smart contract when it will be able to. This list is the **submission promise list** of the server, because basically the server promises, that it will submit these to the smart contract. The list consist of 3 kinds of items:
+The server collects real-time what kind of submissions it will do to the smart contract when it will be able to. This list is called the **Smart Contract Submission Promise List**, because basically the server promises, that it will submit these to the smart contract. The list consist of 3 kinds of items:
 
 * cancellations
 * matched order-pair submission (These are the most important submissions: The smart contract will examine the signature of the orders in the pairs, and if they are valid and this `in_session_order_index` is not canceled yet, and it will execute the token swaps.)
 * unreserve
 
-The client tracks this list and will detect if not the exact same things have been submitted to the smart contract by constantly monitoring the smart contract. 
+Please note that the number of submissions sent to the server is minimized to save gas. As only one order can be active in a reserve session at a time, each order can be represented with a serial number (`in_session_order_index`), the `cancel` command can be represented with just one number: orders up until this number are not active anymore. Multiple fast cancels are also moved into one `cancel` command by the server, so `cancel(1)`, `cancel(2)`, `cancel(3)` will be just one `cancel(3)`. And finally a matched order pair submission automatically means cancel for all previous orders.    
+
+### Auditing
+
+The client continuously queries 3 things:
+
+* Client Submission List
+* Smart Contract Submission Promise List
+* Sumbissions actually came into the Smart Contract.
+
+The client will detect server misbehaviour in the following cases:
+
+* if not the exact same things have been submitted to the smart contract as in the *Smart Contract Submission Promise List*. The proof is the state of the public ledger + part of the the (server-signed) *Smart Contract Submission Promise List*.
+* If the *Client Submission List* reported to different clients has different elements at a certain index (serial_number). The proof is the two contradictory server-signed *Client Submission List* element.
+* if the server simply does not include one client's order into *Client Submission List* (supression). This will turn out immediately after the client submits the request, as the protocol is defined in a way that the response for a client submission must be the corresponding server-signed just-added *Client Submission List* element. In this case the client does not have a cryptographic proof of misbehaviour for the outside world, but the client should not trust the server anymore.
+* If the *Smart Contract Submission Promise List* derived from the *Client Submission List* is not the same as determined by the exact deterministic order-matcing rules we will define in the standard. 
+
+Can the server do any front-running with this kind of audit without being detected? We beleive that the only advantage the server has with its own orders over the clients is that it can submit orders with lower latency. The lower latencies a server has, the smaller this advantage becomes, so clients should prefer lower-latency exchange servers over higher-latency ones if otherwise their reputation is equal.    
 
 It can be seen that the server can only lie with its promises only for a small amount of time, and after that not only the client will do emergency unreserve, but the server will lose its reputation too. (And remember: even if the server lies the guarantees listed in the gurantee list in this paper are always still true, so no loss of reserves and no trade outside specified order price limit.)
 
-Please note that the number of submissions sent to the server is minimized to save gas. As only one order can be active in a reserve session at a time, each order can be represented with a serial number (`in_session_order_index`), the `cancel` command can be represented with just one number: orders up until this number are not active anymore. Multiple fast cancels are also moved into one `cancel` command by the server, so `cancel(1)`, `cancel(2)`, `cancel(3)` will be just one `cancel(3)`. And finally a matched order pair submission automatically means cancel for all previous orders.    
 
 ### Fees
 
